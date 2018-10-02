@@ -144,6 +144,36 @@ export default class GooglePayPaymentProcessor {
             });
     }
 
+    displayWallet(): Promise<InternalCheckoutSelectors> {
+        return new Promise((resolve, reject) => {
+            if (!this._paymentMethod) {
+                throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
+            }
+
+            if (!this._googlePaymentsClient && !this._googlePaymentDataRequest) {
+                throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
+            }
+
+            const {
+                onError = () => {},
+                onPaymentSelect = () => {},
+            } = this._googlePayOptions;
+
+            this._googlePaymentsClient.isReadyToPay({
+                allowedPaymentMethods: this._googlePaymentDataRequest.allowedPaymentMethods,
+            }).then( (response: GooglePayIsReadyToPayResponse) => {
+                if (response) {
+                    this._googlePaymentsClient.loadPaymentData(this._googlePaymentDataRequest)
+                        .then((paymentData: GooglePaymentData) => {
+                            return this._setExternalCheckoutData(paymentData);
+                        }).catch((err: GooglePaymentsError) => {  
+                            reject(new Error(err.statusCode));
+                        });
+                }
+            });
+        });
+    }
+
     private _configureWallet(): Promise<void> {
         if (!this._methodId) {
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
@@ -185,35 +215,7 @@ export default class GooglePayPaymentProcessor {
             });
     }
 
-    private _displayWallet(): Promise<InternalCheckoutSelectors> {
-        return new Promise((resolve, reject) => {
-            if (!this._paymentMethod) {
-                throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
-            }
 
-            if (!this._googlePaymentsClient && !this._googlePaymentDataRequest) {
-                throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
-            }
-
-            const {
-                onError = () => {},
-                onPaymentSelect = () => {},
-            } = this._googlePayOptions;
-
-            this._googlePaymentsClient.isReadyToPay({
-                allowedPaymentMethods: this._googlePaymentDataRequest.allowedPaymentMethods,
-            }).then( (response: GooglePayIsReadyToPayResponse) => {
-                if (response) {
-                    this._googlePaymentsClient.loadPaymentData(this._googlePaymentDataRequest)
-                        .then((paymentData: GooglePaymentData) => {
-                            return this._setExternalCheckoutData(paymentData);
-                        }).catch((err: GooglePaymentsError) => {  
-                            reject(new Error(err.statusCode));
-                        });
-                }
-            });
-        });
-    }
 
     private _getGooglePaymentsClient(google: GooglePaySDK, testMode: boolean | undefined): GooglePayClient {
         let environment: EnvironmentType;
@@ -304,6 +306,6 @@ export default class GooglePayPaymentProcessor {
     private _handleWalletButtonClick(event: Event): void {
         event.preventDefault();
 
-        this._displayWallet();
+        this.displayWallet();
     }
 }
