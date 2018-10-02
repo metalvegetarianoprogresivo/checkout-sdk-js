@@ -30,10 +30,10 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
             return super.initialize(options);
         }
 
-        const { googlepay: googlepayBraintree, methodId }  = options;
+        const { googlepay, methodId }  = options;
 
-        if (!googlepayBraintree || !methodId) {
-            throw new InvalidArgumentError();
+        if (!googlepay || !methodId) {
+            throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
         }
 
         return this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(methodId))
@@ -44,18 +44,15 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
                     throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
                 }
 
-                if (this._googlePayPaymentStrategy) {
-                    const paymentOptions: PaymentInitializeOptions = {
-                        methodId,
-                        googlepay: {
-                            //walletButton: googlepayBraintree.container,
-                            onPaymentSelect: this._onPaymentSelectComplete,
-                            onError: this._onError,
-                        },
-                    };
-                    this._googlePayPaymentStrategy.initialize(paymentOptions)
-                        .then(() => this._createSignInButton(googlepayBraintree.container));
-                }
+                const paymentOptions: PaymentInitializeOptions = {
+                    methodId,
+                    googlepay: {
+                        onPaymentSelect: this._onPaymentSelectComplete,
+                        onError: this._onError,
+                    },
+                };
+                this._googlePayPaymentStrategy.initialize(paymentOptions)
+                    .then(() => this._createSignInButton(googlepay.container));
             })
         .then(() => super.initialize(options));
     }
@@ -64,11 +61,14 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
         if (!this._isInitialized) {
             return super.deinitialize(options);
         }
+
         this._paymentMethod = undefined;
+
         if (this._signInButton && this._signInButton.parentNode) {
             this._signInButton.parentNode.removeChild(this._signInButton);
             this._signInButton = undefined;
         }
+
         return super.deinitialize(options);
     }
 
@@ -81,9 +81,11 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
     signOut(options?: CustomerRequestOptions): Promise<InternalCheckoutSelectors> {
         const state = this._store.getState();
         const payment = state.payment.getPaymentId();
+
         if (!payment) {
             return Promise.resolve(this._store.getState());
         }
+
         return this._store.dispatch(
             this._remoteCheckoutActionCreator.signOut(payment.providerId, options)
         );
@@ -91,18 +93,14 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
 
     private _createSignInButton(containerId: string): void {
         const container = document.querySelector(`#${containerId}`);
+
         if (!container) {
             throw new InvalidArgumentError('Unable to create sign-in button without valid container ID.');
         }
 
         const googlePayButton = this._googlePayPaymentStrategy.createButton();
 
-        // const button = document.createElement('input');
-        // button.type = 'image';
-        // button.src = 'https://static.masterpass.com/dyn/img/btn/global/mp_chk_btn_160x037px.svg';
-        //button.src = '~/img/payment-providers/google-pay.png';
         container.appendChild(googlePayButton);
-        // return button;
     }
 
     private _onPaymentSelectComplete(): void {

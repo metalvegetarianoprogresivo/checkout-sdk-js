@@ -244,6 +244,24 @@ export function getChasePay(): PaymentMethod {
     };
 }
 
+export function getGooglePay(): PaymentMethod {
+    return {
+        id: 'googlepay',
+        config: {
+            displayName: 'Google Pay',
+            testMode: false,
+        },
+        method: 'googlepay',
+        supportedCards: [
+            'VISA',
+            'MC',
+            'AMEX',
+        ],
+        type: 'PAYMENT_TYPE_API',
+        clientToken: 'token',
+    };
+}
+
 export function getMasterpass(): PaymentMethod {
     return {
         id: 'masterpass',
