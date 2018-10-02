@@ -5,22 +5,21 @@ import {
     MissingDataErrorType,
     NotImplementedError
 } from '../../common/error/errors';
-import { PaymentInitializeOptions, PaymentMethod, PaymentMethodActionCreator } from '../../payment';
-import GooglePayPaymentStrategy from '../../payment/strategies/googlepay/googlepay-payment-strategy';
+import { PaymentInitializeOptions } from '../../payment';
 import { RemoteCheckoutActionCreator } from '../../remote-checkout';
 import CustomerCredentials from '../customer-credentials';
 import { CustomerInitializeOptions, CustomerRequestOptions } from '../customer-request-options';
 
 import CustomerStrategy from './customer-strategy';
 
+import GooglePayPaymentProcessor from '../../payment/strategies/googlepay/googlepay-payment-processor';
+
 export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy {
     private _signInButton?: HTMLElement;
-    private _paymentMethod?: PaymentMethod;
      constructor(
         store: CheckoutStore,
-        private _googlePayPaymentStrategy: GooglePayPaymentStrategy,
-        private _paymentMethodActionCreator: PaymentMethodActionCreator,
-        private _remoteCheckoutActionCreator: RemoteCheckoutActionCreator
+        private _remoteCheckoutActionCreator: RemoteCheckoutActionCreator,
+        private _googlePayPaymentProcessor: GooglePayPaymentProcessor
     ) {
         super(store);
     }
@@ -29,32 +28,21 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
         if (this._isInitialized) {
             return super.initialize(options);
         }
-
         const { googlepay, methodId }  = options;
-
         if (!googlepay || !methodId) {
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
         }
+        const paymentOptions: PaymentInitializeOptions = {
+            methodId,
+            googlepay: {
+                onPaymentSelect: this._onPaymentSelectComplete,
+                onError: this._onError,
+            },
+        };
 
-        return this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(methodId))
-            .then(state => {
-                const paymentMethod = this._paymentMethod = state.paymentMethods.getPaymentMethod(methodId);
-
-                if (!paymentMethod || !paymentMethod.clientToken) {
-                    throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
-                }
-
-                const paymentOptions: PaymentInitializeOptions = {
-                    methodId,
-                    googlepay: {
-                        onPaymentSelect: this._onPaymentSelectComplete,
-                        onError: this._onError,
-                    },
-                };
-                this._googlePayPaymentStrategy.initialize(paymentOptions)
-                    .then(() => this._createSignInButton(googlepay.container));
-            })
-        .then(() => super.initialize(options));
+        return this._googlePayPaymentProcessor.initialize(paymentOptions)
+            .then(() => { this._createSignInButton(googlepay.container) } )
+            .then(() => super.initialize(options));
     }
 
     deinitialize(options?: CustomerRequestOptions): Promise<InternalCheckoutSelectors> {
@@ -62,14 +50,13 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
             return super.deinitialize(options);
         }
 
-        this._paymentMethod = undefined;
-
         if (this._signInButton && this._signInButton.parentNode) {
             this._signInButton.parentNode.removeChild(this._signInButton);
             this._signInButton = undefined;
         }
 
-        return super.deinitialize(options);
+        return this._googlePayPaymentProcessor.deinitialize()
+            .then(() => super.deinitialize(options)); 
     }
 
     signIn(credentials: CustomerCredentials, options?: CustomerRequestOptions): Promise<InternalCheckoutSelectors> {
@@ -98,7 +85,7 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
             throw new InvalidArgumentError('Unable to create sign-in button without valid container ID.');
         }
 
-        const googlePayButton = this._googlePayPaymentStrategy.createButton();
+        const googlePayButton = this._googlePayPaymentProcessor.createButton();
 
         container.appendChild(googlePayButton);
     }
