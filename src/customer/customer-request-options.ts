@@ -6,6 +6,7 @@ import {
     ChasePayCustomerInitializeOptions,
     MasterpassCustomerInitializeOptions
 } from './strategies';
+import { GooglePayBraintreeCustomerInitializeOptions } from './strategies/googlepay-braintree-customer-initialize-options';
 
 /**
  * A set of options for configuring any requests related to the customer step of
@@ -47,4 +48,10 @@ export interface CustomerInitializeOptions extends CustomerRequestOptions {
      */
     chasepay?: ChasePayCustomerInitializeOptions;
     masterpass?: MasterpassCustomerInitializeOptions;
+
+    /**
+     * The options that are required to initialize the GooglePay payment method.
+     * They can be omitted unless you need to support GooglePay.
+     */
+    googlepay?: GooglePayBraintreeCustomerInitializeOptions;
 }
