@@ -1,10 +1,6 @@
-import { RequestSender } from '@bigcommerce/request-sender';
-import Response from '@bigcommerce/request-sender/lib/response';
-
 import { BillingAddressActionCreator } from '../../../billing';
 import { BillingAddressUpdateRequestBody } from '../../../billing';
 import CheckoutStore from '../../../checkout/checkout-store';
-import { CheckoutActionCreator } from '../../../checkout/index';
 import InternalCheckoutSelectors from '../../../checkout/internal-checkout-selectors';
 import {
     InvalidArgumentError,
@@ -14,17 +10,14 @@ import {
     StandardError
 } from '../../../common/error/errors/index';
 import NotInitializedError from '../../../common/error/errors/not-initialized-error';
-import { toFormUrlEncoded } from '../../../common/http-request';
 import { bindDecorator as bind } from '../../../common/utility';
 import {
     OrderActionCreator,
     OrderRequestBody
 } from '../../../order/index';
 import { RemoteCheckoutSynchronizationError } from '../../../remote-checkout/errors';
-import ConsignmentActionCreator from '../../../shipping/consignment-action-creator';
 import {
     PaymentMethodActionCreator,
-    PaymentStrategyActionCreator
 } from '../../index';
 import PaymentMethod from '../../payment-method';
 import {
@@ -49,6 +42,7 @@ import {
 } from './googlepay';
 import GooglePayPaymentInitializeOptions from './googlepay-initialize-options';
 import GooglePayScriptLoader from './googlepay-script-loader';
+import ShippingStrategyActionCreator from '../../../shipping/shipping-strategy-action-creator';
 
 export default class GooglePayPaymentProcessor {
     private _googlePaymentsClient!: GooglePayClient;
@@ -57,29 +51,30 @@ export default class GooglePayPaymentProcessor {
     private _paymentMethod?: PaymentMethod;
     private _walletButton?: HTMLElement;
     private _googlePaymentDataRequest!: GooglePayPaymentDataRequestV1;
+    private _onSelectHandler?(paymentSucessPayload: PaymentSuccessPayload): Promise<InternalCheckoutSelectors>;
 
     constructor(
         private _store: CheckoutStore,
-        private _checkoutActionCreator: CheckoutActionCreator,
         private _paymentMethodActionCreator: PaymentMethodActionCreator,
-        private _paymentStrategyActionCreator: PaymentStrategyActionCreator,
         private _googlePayScriptLoader: GooglePayScriptLoader,
         private _googlePayInitializer: GooglePayInitializer,
-        private _requestSender: RequestSender,
         private _billingAddressActionCreator: BillingAddressActionCreator,
-        private _consignmentActionCreator: ConsignmentActionCreator
+        private _shippingStrategyActionCreator: ShippingStrategyActionCreator
     ) { }
 
-    initialize(options: PaymentInitializeOptions): Promise<void> {
-        this._methodId = options.methodId;
+    initialize(options: GooglePayProcessorOptions): Promise<void> {
 
-        if (!options.googlepay) {
+        this._methodId = options.initializeOptions.methodId;
+
+
+        if (!options.initializeOptions.googlepay) {
             throw new InvalidArgumentError('Unable to initialize payment because "options.googlepay" argument is not provided.');
         }
 
-        this._googlePayOptions = options.googlepay;
+        this._googlePayOptions = options.initializeOptions.googlepay;
+        this._onSelectHandler = options.onWalletSelect;
 
-        const walletButton = options.googlepay.walletButton && document.getElementById(options.googlepay.walletButton);
+        const walletButton = this._googlePayOptions.walletButton && document.getElementById(this._googlePayOptions.walletButton);
 
         if (walletButton) {
             this._walletButton = walletButton;
@@ -118,7 +113,7 @@ export default class GooglePayPaymentProcessor {
         }
 
         return this._store.dispatch(
-            this._consignmentActionCreator.updateAddress(mapGooglePayAddressToRequestAddress(shippingAddress))
+            this._shippingStrategyActionCreator.updateAddress(mapGooglePayAddressToRequestAddress(shippingAddress))
         ).then(() => this._store.getState());
     }
 
@@ -153,11 +148,6 @@ export default class GooglePayPaymentProcessor {
             if (!this._googlePaymentsClient && !this._googlePaymentDataRequest) {
                 throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
             }
-
-            const {
-                onError = () => {},
-                onPaymentSelect = () => {},
-            } = this._googlePayOptions;
 
             this._googlePaymentsClient.isReadyToPay({
                 allowedPaymentMethods: this._googlePaymentDataRequest.allowedPaymentMethods,
@@ -244,58 +234,9 @@ export default class GooglePayPaymentProcessor {
                     shippingAddress: paymentData.shippingAddress,
                     email: paymentData.email,
                 };
-
-                const {
-                    onError = () => {},
-                    onPaymentSelect = () => {},
-                } = this._googlePayOptions;
-
-
-                return this._paymentInstrumentSelected(paymentSuccessPayload)
-                    .then(() => onPaymentSelect())
-                    .catch(error => onError(error));
+                if(this._onSelectHandler)
+                   this._onSelectHandler(paymentSuccessPayload);
             });
-    }
-
-    private _paymentInstrumentSelected(paymentSuccessPayload: PaymentSuccessPayload): Promise<InternalCheckoutSelectors> {
-        if (!this._paymentMethod) {
-            throw new Error('Payment method not initialized');
-        }
-
-        const { id: methodId } = this._paymentMethod;
-
-        return this._store.dispatch(this._paymentStrategyActionCreator.widgetInteraction(() => {
-            return this._postForm(paymentSuccessPayload)
-                .then(() => Promise.all([
-                    this._store.dispatch(this._checkoutActionCreator.loadCurrentCheckout()),
-                    this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(methodId)),
-                ]));
-        }, { methodId }), { queueId: 'widgetInteraction' });
-    }
-
-    private _postForm(paymentData: PaymentSuccessPayload): Promise<Response<any>> {
-        const cardInformation = paymentData.tokenizePayload.details;
-
-        return this._requestSender.post('/checkout.php', {
-            headers: {
-                Accept: 'text/html',
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: toFormUrlEncoded({
-                payment_type: paymentData.tokenizePayload.type,
-                nonce: paymentData.tokenizePayload.nonce,
-                provider: 'googlepay',
-                action: 'set_external_checkout',
-                card_information: this._getCardInformation(cardInformation),
-            }),
-        });
-    }
-
-    private _getCardInformation(cardInformation: { cardType: string, lastFour: string }) {
-        return {
-            type: cardInformation.cardType,
-            number: cardInformation.lastFour,
-        };
     }
 
     private _handleError(error: Error): never {
@@ -308,4 +249,9 @@ export default class GooglePayPaymentProcessor {
 
         this.displayWallet();
     }
+}
+
+export interface GooglePayProcessorOptions {
+    initializeOptions:PaymentInitializeOptions,
+    onWalletSelect?(paymentSucessPayload: PaymentSuccessPayload): Promise<InternalCheckoutSelectors>;
 }

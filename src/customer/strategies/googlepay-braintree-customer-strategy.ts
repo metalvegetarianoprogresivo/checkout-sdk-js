@@ -12,7 +12,7 @@ import { CustomerInitializeOptions, CustomerRequestOptions } from '../customer-r
 
 import CustomerStrategy from './customer-strategy';
 
-import GooglePayPaymentProcessor from '../../payment/strategies/googlepay/googlepay-payment-processor';
+import GooglePayPaymentProcessor, { GooglePayProcessorOptions } from '../../payment/strategies/googlepay/googlepay-payment-processor';
 
 export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy {
     private _signInButton?: HTMLElement;
@@ -40,7 +40,11 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
             },
         };
 
-        return this._googlePayPaymentProcessor.initialize(paymentOptions)
+        const processorOptions: GooglePayProcessorOptions = {
+            initializeOptions: paymentOptions
+        };
+
+        return this._googlePayPaymentProcessor.initialize(processorOptions)
             .then(() => { this._createSignInButton(googlepay.container) } )
             .then(() => super.initialize(options));
     }

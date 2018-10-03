@@ -43,10 +43,13 @@ import BraintreeSDKCreator from './strategies/braintree/braintree-sdk-creator';
 import { ChasePayPaymentStrategy, ChasePayScriptLoader } from './strategies/chasepay';
 import { GooglePayScriptLoader } from './strategies/googlepay';
 import GooglePayBraintreeInitializer from './strategies/googlepay/googlepay-braintree-initializer';
+import GooglePayPaymentProcessor from './strategies/googlepay/googlepay-payment-processor';
 import { KlarnaScriptLoader } from './strategies/klarna';
 import { PaypalScriptLoader } from './strategies/paypal';
 import { SquareScriptLoader } from './strategies/square';
 import { WepayRiskClient } from './strategies/wepay';
+import ShippingStrategyActionCreator from '../shipping/shipping-strategy-action-creator';
+import createShippingStrategyRegistry from '../shipping/create-shipping-strategy-registry';
 
 export default function createPaymentStrategyRegistry(
     store: CheckoutStore,
@@ -262,11 +265,16 @@ export default function createPaymentStrategyRegistry(
             paymentStrategyActionCreator,
             paymentActionCreator,
             orderActionCreator,
-            new GooglePayScriptLoader(scriptLoader),
             new GooglePayBraintreeInitializer(braintreeSdkCreator),
             requestSender,
-            new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender)),
-            new ConsignmentActionCreator(consignmentRequestSender, checkoutRequestSender)
+            new GooglePayPaymentProcessor(
+                store,
+                paymentMethodActionCreator,
+                new GooglePayScriptLoader(scriptLoader),
+                new GooglePayBraintreeInitializer(braintreeSdkCreator),
+                new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender)),
+                new ShippingStrategyActionCreator(createShippingStrategyRegistry(store, requestSender))
+            )
         )
     );
 

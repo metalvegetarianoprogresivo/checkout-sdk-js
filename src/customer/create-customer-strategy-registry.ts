@@ -9,7 +9,6 @@ import { Registry } from '../common/registry';
 import { ConfigActionCreator, ConfigRequestSender } from '../config';
 import { OrderActionCreator, OrderRequestSender } from '../order';
 import { createPaymentClient, PaymentActionCreator, PaymentMethodActionCreator, PaymentMethodRequestSender, PaymentRequestSender, PaymentStrategyActionCreator, PaymentStrategyRegistry } from '../payment';
-import { GooglePayPaymentStrategy } from '../payment/strategies';
 import { AmazonPayScriptLoader } from '../payment/strategies/amazon-pay';
 import { createBraintreeVisaCheckoutPaymentProcessor, BraintreeScriptLoader, BraintreeSDKCreator, VisaCheckoutScriptLoader } from '../payment/strategies/braintree';
 import { ChasePayScriptLoader } from '../payment/strategies/chasepay';
@@ -33,6 +32,9 @@ import {
 } from './strategies';
 import GooglePayBraintreeCustomerStrategy from './strategies/googlepay-braintree-customer-strategy';
 import SquareCustomerStrategy from './strategies/square-customer-strategy';
+import GooglePayPaymentProcessor from '../payment/strategies/googlepay/googlepay-payment-processor';
+import ShippingStrategyActionCreator from '../shipping/shipping-strategy-action-creator';
+import createShippingStrategyRegistry from '../shipping/create-shipping-strategy-registry';
 
 export default function createCustomerStrategyRegistry(
     store: CheckoutStore,
@@ -60,23 +62,6 @@ export default function createCustomerStrategyRegistry(
     const paymentMethodActionCreator = new PaymentMethodActionCreator(new PaymentMethodRequestSender(requestSender));
     const remoteCheckoutRequestSender = new RemoteCheckoutRequestSender(requestSender);
     const remoteCheckoutActionCreator = new RemoteCheckoutActionCreator(remoteCheckoutRequestSender);
-
-    const googlePayPaymentStrategy = new GooglePayPaymentStrategy(
-        store,
-        new CheckoutActionCreator(
-            checkoutRequestSender,
-            new ConfigActionCreator(new ConfigRequestSender(requestSender))
-        ),
-        paymentMethodActionCreator,
-        new PaymentStrategyActionCreator(new PaymentStrategyRegistry(store, { defaultToken: 'creditcard' }), orderActionCreator),
-        paymentActionCreator,
-        orderActionCreator,
-        new GooglePayScriptLoader(scriptLoader),
-        new GooglePayBraintreeInitializer(braintreeSdkCreator),
-        requestSender,
-        new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender)),
-        new ConsignmentActionCreator(consignmentRequestSender, checkoutRequestSender)
-    );
 
     registry.register('amazon', () =>
         new AmazonPayCustomerStrategy(
@@ -127,12 +112,18 @@ export default function createCustomerStrategyRegistry(
         )
     );
 
-    registry.register('googlepay', () =>
+    registry.register('googlepay-braintree', () =>
         new GooglePayBraintreeCustomerStrategy(
             store,
-            googlePayPaymentStrategy,
-            paymentMethodActionCreator,
-            remoteCheckoutActionCreator
+            remoteCheckoutActionCreator,
+            new GooglePayPaymentProcessor(
+                store,
+                paymentMethodActionCreator,
+                new GooglePayScriptLoader(scriptLoader),
+                new GooglePayBraintreeInitializer(braintreeSdkCreator),
+                new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender)),
+                new ShippingStrategyActionCreator(createShippingStrategyRegistry(store, requestSender))
+            )
         )
     );
 

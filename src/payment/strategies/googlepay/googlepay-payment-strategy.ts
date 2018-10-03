@@ -1,27 +1,13 @@
-import { RequestSender } from '@bigcommerce/request-sender';
-import Response from '@bigcommerce/request-sender/lib/response';
-
-import { BillingAddressActionCreator } from '../../../billing';
-import { BillingAddressUpdateRequestBody } from '../../../billing';
 import CheckoutStore from '../../../checkout/checkout-store';
-import { CheckoutActionCreator } from '../../../checkout/index';
 import InternalCheckoutSelectors from '../../../checkout/internal-checkout-selectors';
 import {
-    InvalidArgumentError,
     MissingDataError,
-    MissingDataErrorType,
-    NotInitializedErrorType,
-    StandardError
+    MissingDataErrorType
 } from '../../../common/error/errors/index';
-import NotInitializedError from '../../../common/error/errors/not-initialized-error';
-import { toFormUrlEncoded } from '../../../common/http-request';
-import { bindDecorator as bind } from '../../../common/utility';
 import {
     OrderActionCreator,
     OrderRequestBody
 } from '../../../order/index';
-import { RemoteCheckoutSynchronizationError } from '../../../remote-checkout/errors';
-import ConsignmentActionCreator from '../../../shipping/consignment-action-creator';
 import {
     PaymentActionCreator,
     PaymentMethodActionCreator,
@@ -36,32 +22,17 @@ import {
 import PaymentStrategy from '../payment-strategy';
 
 import {
-    default as mapGooglePayAddressToRequestAddress,
-    ButtonColor,
-    ButtonType,
-    EnvironmentType,
-    GooglePaymentsError,
-    GooglePaymentData,
-    GooglePayAddress,
-    GooglePayClient,
-    GooglePayInitializer,
-    GooglePayIsReadyToPayResponse,
-    GooglePayPaymentDataRequestV1,
-    GooglePayPaymentOptions, GooglePaySDK,
-    PaymentSuccessPayload,
-    TokenizePayload
+    GooglePayInitializer, PaymentSuccessPayload
 } from './googlepay';
-import GooglePayPaymentInitializeOptions from './googlepay-initialize-options';
+import GooglePayPaymentProcessor, { GooglePayProcessorOptions } from './googlepay-payment-processor';
+import CheckoutActionCreator from '../../../checkout/checkout-action-creator';
 import GooglePayScriptLoader from './googlepay-script-loader';
-import GooglePayPaymentProcessor from './googlepay-payment-processor';
+import RequestSender from '../../../../node_modules/@bigcommerce/request-sender/lib/request-sender';
+import toFormUrlEncoded from '../../../common/http-request/to-form-url-encoded';
 
 export default class GooglePayPaymentStrategy extends PaymentStrategy {
-    private _googlePaymentsClient!: GooglePayClient;
-    private _googlePayOptions!: GooglePayPaymentInitializeOptions;
     private _methodId!: string;
     private _paymentMethod?: PaymentMethod;
-    private _walletButton?: HTMLElement;
-    private _googlePaymentDataRequest!: GooglePayPaymentDataRequestV1;
 
     constructor(
         store: CheckoutStore,
@@ -70,18 +41,20 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
         private _paymentStrategyActionCreator: PaymentStrategyActionCreator,
         private _paymentActionCreator: PaymentActionCreator,
         private _orderActionCreator: OrderActionCreator,
-        private _googlePayScriptLoader: GooglePayScriptLoader,
         private _googlePayInitializer: GooglePayInitializer,
         private _requestSender: RequestSender,
-        private _billingAddressActionCreator: BillingAddressActionCreator,
-        private _consignmentActionCreator: ConsignmentActionCreator,
         private _googlePayPaymentProcessor: GooglePayPaymentProcessor
     ) {
         super(store);
     }
 
     initialize(options: PaymentInitializeOptions): Promise<InternalCheckoutSelectors> {
-        return this._googlePayPaymentProcessor.initialize(options)
+        const processorOptions: GooglePayProcessorOptions = {
+            initializeOptions: options,
+            onWalletSelect: this._paymentInstrumentSelected
+        };
+        
+        return this._googlePayPaymentProcessor.initialize(processorOptions)
             .then(() => super.initialize(options));
     }
 
@@ -140,5 +113,46 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
                     paymentData,
                 };
             });
+    }
+
+    private _paymentInstrumentSelected(paymentSuccessPayload: PaymentSuccessPayload): Promise<InternalCheckoutSelectors> {
+        if (!this._paymentMethod) {
+            throw new Error('Payment method not initialized');
+        }
+
+        const { id: methodId } = this._paymentMethod;
+
+        return this._store.dispatch(this._paymentStrategyActionCreator.widgetInteraction(() => {
+            return this._postForm(paymentSuccessPayload)
+                .then(() => Promise.all([
+                    this._store.dispatch(this._checkoutActionCreator.loadCurrentCheckout()),
+                    this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(methodId)),
+                ]));
+        }, { methodId }), { queueId: 'widgetInteraction' });
+    }
+
+    private _postForm(paymentData: PaymentSuccessPayload): any {
+        const cardInformation = paymentData.tokenizePayload.details;
+
+        return this._requestSender.post('/checkout.php', {
+            headers: {
+                Accept: 'text/html',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: toFormUrlEncoded({
+                payment_type: paymentData.tokenizePayload.type,
+                nonce: paymentData.tokenizePayload.nonce,
+                provider: 'googlepay',
+                action: 'set_external_checkout',
+                card_information: this._getCardInformation(cardInformation),
+            }),
+        });
+    }
+
+    private _getCardInformation(cardInformation: { cardType: string, lastFour: string }) {
+        return {
+            type: cardInformation.cardType,
+            number: cardInformation.lastFour,
+        };
     }
 }
