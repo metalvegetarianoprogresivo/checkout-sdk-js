@@ -123,29 +123,29 @@ describe('BraintreeScriptLoader', () => {
         });
     });
 
-    describe('#loadGooglePay()', () => {
-        let googlePayMock: BraintreeModuleCreator<GooglePayBraintreeSDK>;
-
-        beforeEach(() => {
-            googlePayMock = getModuleCreatorMock(getGooglePayMock());
-            scriptLoader.loadScript = jest.fn(() => {
-                if (mockWindow.braintree) {
-                    mockWindow.braintree.googlePayment = googlePayMock;
-                }
-
-                return Promise.resolve();
-            });
-        });
-
-        it('loads the GooglePay library', async () => {
-            await braintreeScriptLoader.loadGooglePaymentComponent();
-            expect(scriptLoader.loadScript).toHaveBeenCalledWith('//js.braintreegateway.com/web/3.37.0/js/google-payment.min.js');
-        });
-
-        it('returns the GooglePay from the window', async () => {
-            const googlePay = await braintreeScriptLoader.loadGooglePaymentComponent();
-            expect(googlePay).toBe(googlePayMock);
-        });
-    });
+    // describe('#loadGooglePay()', () => {
+    //     let googlePayMock: BraintreeModuleCreator<GooglePayBraintreeSDK>;
+    //
+    //     beforeEach(() => {
+    //         googlePayMock = getModuleCreatorMock(getGooglePayMock());
+    //         scriptLoader.loadScript = jest.fn(() => {
+    //             if (mockWindow.braintree) {
+    //                 mockWindow.braintree.googlePayment = googlePayMock;
+    //             }
+    //
+    //             return Promise.resolve();
+    //         });
+    //     });
+    //
+    //     it('loads the GooglePay library', async () => {
+    //         await braintreeScriptLoader.loadGooglePaymentComponent();
+    //         expect(scriptLoader.loadScript).toHaveBeenCalledWith('//js.braintreegateway.com/web/3.37.0/js/google-payment.min.js');
+    //     });
+    //
+    //     it('returns the GooglePay from the window', async () => {
+    //         const googlePay = await braintreeScriptLoader.loadGooglePaymentComponent();
+    //         expect(googlePay).toBe(googlePayMock);
+    //     });
+    // });
 
 });

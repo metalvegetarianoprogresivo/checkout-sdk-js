@@ -73,15 +73,15 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
             this._walletButton = walletButton;
             this._walletButton.addEventListener('click', this._handleWalletButtonClick);
         }
-        
-        return this._googlePayPaymentProcessor.initialize(this._methodId,this._googlePayOptions)
+
+        return this._googlePayPaymentProcessor.initialize(this._methodId)
             .then(() => super.initialize(options));
     }
 
     deinitialize(options?: PaymentRequestOptions): Promise<InternalCheckoutSelectors> {
        return Promise.all([
             this._googlePayInitializer.teardown(),
-            this._googlePayPaymentProcessor.deinitialize()
+            this._googlePayPaymentProcessor.deinitialize(),
         ])
         .then(() => super.deinitialize(options));
     }
@@ -107,7 +107,7 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
     }
 
     private _setExternalCheckoutData(paymentData: GooglePaymentData): Promise<void> {
-        return this._googlePayInitializer.parseResponse(paymentData)
+        return this._googlePayPaymentProcessor.parseResponse(paymentData)
             .then((tokenizePayload: TokenizePayload) => {
                 const {
                     onError = () => {},
@@ -150,17 +150,16 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
     }
 
     private _paymentInstrumentSelected(tokenizePayload: TokenizePayload, billingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors> {
-        if (!this._paymentMethod) {
-            throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
-        }
-
-        const { id: methodId } = this._paymentMethod;
+        // if (!this._paymentMethod) {
+        //     throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
+        // }
+        //
+        // const { id: methodId } = this._paymentMethod;
 
         return this._store.dispatch(this._paymentStrategyActionCreator.widgetInteraction(() => {
             return this._postForm(tokenizePayload, billingAddress);
-        }, { methodId }), { queueId: 'widgetInteraction' });
+        }, { methodId: 'googlepaybraintree' }), { queueId: 'widgetInteraction' });
     }
-
 
     private _postForm(postPaymentData: TokenizePayload, billingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors> {
         const cardInformation = postPaymentData.details;
@@ -178,19 +177,18 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
                 card_information: this._getCardInformation(cardInformation),
             }),
         }).then(() => {
-            if (!this._paymentMethod) {
-                throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
-            }
-            const { id: methodId } = this._paymentMethod;
+            // if (!this._paymentMethod) {
+            //     throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
+            // }
+            // const { id: methodId } = this._paymentMethod;
 
             return Promise.all([
-                //this._synchronizeBillingAddress(billingAddress),
+                this._googlePayPaymentProcessor.updateBillingAddress(billingAddress),
                 this._store.dispatch(this._checkoutActionCreator.loadCurrentCheckout()),
-                this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(methodId)),
+                this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod('googlepaybraintree')),
             ]).then(() => this._store.getState());
         });
     }
-
 
     private _getCardInformation(cardInformation: { cardType: string, lastFour: string }) {
         return {
@@ -200,12 +198,12 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
     }
 
     @bind
-    private _handleWalletButtonClick(event: Event): void {
+    private _handleWalletButtonClick(event: Event): Promise<void> {
         event.preventDefault();
 
-        this._googlePayPaymentProcessor.displayWallet()
+        return this._googlePayPaymentProcessor.displayWallet()
         .then(paymentData => {
-            this._setExternalCheckoutData(paymentData);
+            return this._setExternalCheckoutData(paymentData);
         });
     }
 }

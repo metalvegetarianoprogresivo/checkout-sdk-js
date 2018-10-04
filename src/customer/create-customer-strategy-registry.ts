@@ -112,20 +112,20 @@ export default function createCustomerStrategyRegistry(
         )
     );
 
-    registry.register('googlepaybraintree', () =>
-        new GooglePayBraintreeCustomerStrategy(
-            store,
-            remoteCheckoutActionCreator,
-            new GooglePayPaymentProcessor(
-                store,
-                paymentMethodActionCreator,
-                new GooglePayScriptLoader(scriptLoader),
-                new GooglePayBraintreeInitializer(braintreeSdkCreator),
-                new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender)),
-                new ShippingStrategyActionCreator(createShippingStrategyRegistry(store, requestSender))
-            )
-        )
-    );
+    // registry.register('googlepaybraintree', () =>
+    //     new GooglePayBraintreeCustomerStrategy(
+    //         store,
+    //         remoteCheckoutActionCreator,
+    //         new GooglePayPaymentProcessor(
+    //             store,
+    //             paymentMethodActionCreator,
+    //             new GooglePayScriptLoader(scriptLoader),
+    //             new GooglePayBraintreeInitializer(braintreeSdkCreator),
+    //             new BillingAddressActionCreator(new BillingAddressRequestSender(requestSender)),
+    //             new ShippingStrategyActionCreator(createShippingStrategyRegistry(store, requestSender))
+    //         )
+    //     )
+    // );
 
     registry.register('default', () =>
         new DefaultCustomerStrategy(

@@ -32,7 +32,7 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
         }
 
-        return this._googlePayPaymentProcessor.initialize(methodId, googlepay)
+        return this._googlePayPaymentProcessor.initialize(methodId)
             .then(() => { this._createSignInButton(googlepay.container) } )
             .then(() => super.initialize(options));
     }
@@ -48,7 +48,7 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
         }
 
         return this._googlePayPaymentProcessor.deinitialize()
-            .then(() => super.deinitialize(options)); 
+            .then(() => super.deinitialize(options));
     }
 
     signIn(credentials: CustomerCredentials, options?: CustomerRequestOptions): Promise<InternalCheckoutSelectors> {
