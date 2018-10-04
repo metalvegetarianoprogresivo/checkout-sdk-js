@@ -39,7 +39,6 @@ import GooglePayPaymentProcessor from './googlepay-payment-processor';
 
 export default class GooglePayPaymentStrategy extends PaymentStrategy {
     private _methodId!: string;
-    private _paymentMethod?: PaymentMethod;
     private _walletButton?: HTMLElement;
     private _options!: PaymentInitializeOptions;
     private _googlePayOptions!: GooglePayPaymentInitializeOptions;
@@ -140,8 +139,6 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
                     cardInformation: paymentMethod.initializationData.card_information,
                 };
 
-                this._paymentMethod = paymentMethod;
-
                 return {
                     methodId: this._methodId,
                     paymentData,
@@ -150,15 +147,13 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
     }
 
     private _paymentInstrumentSelected(tokenizePayload: TokenizePayload, billingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors> {
-        // if (!this._paymentMethod) {
-        //     throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
-        // }
-        //
-        // const { id: methodId } = this._paymentMethod;
+        if (!this._methodId) {
+            throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
+        }
 
         return this._store.dispatch(this._paymentStrategyActionCreator.widgetInteraction(() => {
             return this._postForm(tokenizePayload, billingAddress);
-        }, { methodId: 'googlepaybraintree' }), { queueId: 'widgetInteraction' });
+        }, { methodId: this._methodId }), { queueId: 'widgetInteraction' });
     }
 
     private _postForm(postPaymentData: TokenizePayload, billingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors> {
@@ -177,15 +172,14 @@ export default class GooglePayPaymentStrategy extends PaymentStrategy {
                 card_information: this._getCardInformation(cardInformation),
             }),
         }).then(() => {
-            // if (!this._paymentMethod) {
-            //     throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
-            // }
-            // const { id: methodId } = this._paymentMethod;
+            if (!this._methodId) {
+                throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
+            }
 
             return Promise.all([
                 this._googlePayPaymentProcessor.updateBillingAddress(billingAddress),
                 this._store.dispatch(this._checkoutActionCreator.loadCurrentCheckout()),
-                this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod('googlepaybraintree')),
+                this._store.dispatch(this._paymentMethodActionCreator.loadPaymentMethod(this._methodId)),
             ]).then(() => this._store.getState());
         });
     }
