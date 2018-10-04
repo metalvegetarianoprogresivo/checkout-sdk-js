@@ -112,7 +112,7 @@ export default function createCustomerStrategyRegistry(
         )
     );
 
-    registry.register('googlepay-braintree', () =>
+    registry.register('googlepaybraintree', () =>
         new GooglePayBraintreeCustomerStrategy(
             store,
             remoteCheckoutActionCreator,

@@ -46,7 +46,7 @@ import ShippingStrategyActionCreator from '../../../shipping/shipping-strategy-a
 
 export default class GooglePayPaymentProcessor {
     private _googlePaymentsClient!: GooglePayClient;
-    private _googlePayOptions!: GooglePayPaymentInitializeOptions;
+    private _options!: GooglePayPaymentInitializeOptions;
     private _methodId!: string;
     private _paymentMethod?: PaymentMethod;
     private _walletButton?: HTMLElement;
@@ -62,36 +62,17 @@ export default class GooglePayPaymentProcessor {
         private _shippingStrategyActionCreator: ShippingStrategyActionCreator
     ) { }
 
-    initialize(options: GooglePayProcessorOptions): Promise<void> {
-
-        this._methodId = options.initializeOptions.methodId;
-
-
-        if (!options.initializeOptions.googlepay) {
+    initialize(methodId: string, options: GooglePayPaymentInitializeOptions): Promise<void> {
+        this._methodId = methodId;
+        if (!options) {
             throw new InvalidArgumentError('Unable to initialize payment because "options.googlepay" argument is not provided.');
         }
 
-        this._googlePayOptions = options.initializeOptions.googlepay;
-        this._onSelectHandler = options.onWalletSelect;
-
-        const walletButton = this._googlePayOptions.walletButton && document.getElementById(this._googlePayOptions.walletButton);
-
-        if (walletButton) {
-            this._walletButton = walletButton;
-            this._walletButton.addEventListener('click', this._handleWalletButtonClick);
-        }
-
+        this._options = options;
         return this._configureWallet();
     }
 
     deinitialize(): Promise<void> {
-
-        if (this._walletButton) {
-            this._walletButton.removeEventListener('click', this._handleWalletButtonClick);
-        }
-
-        this._walletButton = undefined;
-
         return this._googlePayInitializer.teardown();
     }
 
@@ -99,7 +80,7 @@ export default class GooglePayPaymentProcessor {
         return this._googlePaymentsClient.createButton({
             buttonColor: ButtonColor.default,
             buttonType: ButtonType.short,
-            onClick: this._handleWalletButtonClick,
+            //onClick: this._handleWalletButtonClick,
         });
     }
 
@@ -139,12 +120,8 @@ export default class GooglePayPaymentProcessor {
             });
     }
 
-    displayWallet(): Promise<InternalCheckoutSelectors> {
+    displayWallet(): Promise<GooglePaymentData> {
         return new Promise((resolve, reject) => {
-            if (!this._paymentMethod) {
-                throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
-            }
-
             if (!this._googlePaymentsClient && !this._googlePaymentDataRequest) {
                 throw new NotInitializedError(NotInitializedErrorType.PaymentNotInitialized);
             }
@@ -155,7 +132,8 @@ export default class GooglePayPaymentProcessor {
                 if (response) {
                     this._googlePaymentsClient.loadPaymentData(this._googlePaymentDataRequest)
                         .then((paymentData: GooglePaymentData) => {
-                            return this._setExternalCheckoutData(paymentData);
+                            
+                            resolve(paymentData);
                         }).catch((err: GooglePaymentsError) => {  
                             reject(new Error(err.statusCode));
                         });
@@ -205,8 +183,6 @@ export default class GooglePayPaymentProcessor {
             });
     }
 
-
-
     private _getGooglePaymentsClient(google: GooglePaySDK, testMode: boolean | undefined): GooglePayClient {
         let environment: EnvironmentType;
         testMode = true; // TODO: remove when push this code to final review
@@ -225,33 +201,9 @@ export default class GooglePayPaymentProcessor {
         return new google.payments.api.PaymentsClient(options) as GooglePayClient;
     }
 
-    private _setExternalCheckoutData(paymentData: GooglePaymentData): Promise<void> {
-        return this._googlePayInitializer.parseResponse(paymentData)
-            .then((tokenizePayload: TokenizePayload) => {
-                const paymentSuccessPayload: PaymentSuccessPayload = {
-                    tokenizePayload,
-                    billingAddress: paymentData.cardInfo.billingAddress,
-                    shippingAddress: paymentData.shippingAddress,
-                    email: paymentData.email,
-                };
-                if(this._onSelectHandler)
-                   this._onSelectHandler(paymentSuccessPayload);
-            });
-    }
-
     private _handleError(error: Error): never {
         throw new StandardError(error.message);
     }
 
-    @bind
-    private _handleWalletButtonClick(event: Event): void {
-        event.preventDefault();
-
-        this.displayWallet();
-    }
-}
-
-export interface GooglePayProcessorOptions {
-    initializeOptions:PaymentInitializeOptions,
-    onWalletSelect?(paymentSucessPayload: PaymentSuccessPayload): Promise<InternalCheckoutSelectors>;
+ 
 }

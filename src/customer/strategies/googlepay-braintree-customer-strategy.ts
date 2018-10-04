@@ -11,8 +11,7 @@ import CustomerCredentials from '../customer-credentials';
 import { CustomerInitializeOptions, CustomerRequestOptions } from '../customer-request-options';
 
 import CustomerStrategy from './customer-strategy';
-
-import GooglePayPaymentProcessor, { GooglePayProcessorOptions } from '../../payment/strategies/googlepay/googlepay-payment-processor';
+import GooglePayPaymentProcessor from '../../payment/strategies/googlepay/googlepay-payment-processor';
 
 export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy {
     private _signInButton?: HTMLElement;
@@ -32,19 +31,8 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
         if (!googlepay || !methodId) {
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
         }
-        const paymentOptions: PaymentInitializeOptions = {
-            methodId,
-            googlepay: {
-                onPaymentSelect: this._onPaymentSelectComplete,
-                onError: this._onError,
-            },
-        };
 
-        const processorOptions: GooglePayProcessorOptions = {
-            initializeOptions: paymentOptions
-        };
-
-        return this._googlePayPaymentProcessor.initialize(processorOptions)
+        return this._googlePayPaymentProcessor.initialize(methodId, googlepay)
             .then(() => { this._createSignInButton(googlepay.container) } )
             .then(() => super.initialize(options));
     }
