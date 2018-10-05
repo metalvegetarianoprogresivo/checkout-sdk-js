@@ -48,13 +48,16 @@ export default class GooglePayPaymentProcessor {
         return this._googlePayInitializer.teardown();
     }
 
-    createButton(callback: () => {}): HTMLElement {
+    createButton(onClick: () => {},
+                 buttonType: ButtonType = ButtonType.Short,
+                 buttonColor: ButtonColor = ButtonColor.Default): HTMLElement {
         return this._googlePaymentsClient.createButton({
-            buttonColor: ButtonColor.Default,
-            buttonType: ButtonType.Short,
-            onClick: callback,
+            buttonColor,
+            buttonType,
+            onClick,
         });
     }
+
 
     updateBillingAddress(billingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors> {
         if (!this._methodId) {
