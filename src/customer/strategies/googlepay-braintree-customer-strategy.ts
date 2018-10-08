@@ -1,21 +1,22 @@
 import { CustomerCredentials } from '../';
+import { CustomerInitializeOptions, CustomerRequestOptions } from '../';
 import { FormPoster } from '../../../node_modules/@bigcommerce/form-poster/lib';
 import { CheckoutStore, InternalCheckoutSelectors } from '../../checkout';
 import {
     InvalidArgumentError,
     MissingDataError,
     MissingDataErrorType,
-    NotImplementedError
-} from '../../common/error/errors';
+    NotImplementedError} from '../../common/error/errors';
 import { bindDecorator as bind } from '../../common/utility';
-import { GooglePayPaymentInitializeOptions, GooglePayPaymentProcessor } from '../../payment/strategies/googlepay';
+import { GooglePayAddress, GooglePayPaymentProcessor } from '../../payment/strategies/googlepay';
 import { RemoteCheckoutActionCreator } from '../../remote-checkout';
-import { CustomerInitializeOptions, CustomerRequestOptions } from '../customer-request-options';
 
 import { CustomerStrategy } from './';
 
 export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy {
+    private _methodId?: string;
     private _walletButton?: HTMLElement;
+
      constructor(
         store: CheckoutStore,
         private _remoteCheckoutActionCreator: RemoteCheckoutActionCreator,
@@ -36,11 +37,7 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
             throw new MissingDataError(MissingDataErrorType.MissingPaymentMethod);
         }
 
-        const paymentOptions: GooglePayPaymentInitializeOptions = {
-            walletButton: undefined,
-            onPaymentSelect: this._onPaymentSelectComplete,
-            onError: this._onError,
-        };
+        this._methodId = methodId;
 
         return this._googlePayPaymentProcessor.initialize(methodId)
             .then(() => {
@@ -117,12 +114,20 @@ export default class GooglePayBraintreeCustomerStrategy extends CustomerStrategy
     }
 
     @bind
-    private _handleWalletButtonClick(event: Event): void {
+    private _handleWalletButtonClick(event: Event): Promise<void> {
         event.preventDefault();
 
-        this._googlePayPaymentProcessor.displayWallet()
-        .then(paymentData => {
-            //this._setExternalCheckoutData(paymentData);
+        let billingAddress: GooglePayAddress;
+
+        return this._googlePayPaymentProcessor.displayWallet()
+            .then(paymentData => {
+                billingAddress = paymentData.cardInfo.billingAddress;
+                return this._googlePayPaymentProcessor.handleSuccess(paymentData);
+            })
+            .then(() => {
+            return Promise.all([
+                this._googlePayPaymentProcessor.updateBillingAddress(billingAddress),
+            ]).then(() => this._onPaymentSelectComplete());
         });
     }
 }

@@ -22,7 +22,8 @@ export function getGooglePayPaymentProcessor(store: CheckoutStore): GooglePayPay
         new GooglePayScriptLoader(scriptLoader),
         new GooglePayBraintreeInitializer(braintreeSdkCreator),
         new BillingAddressActionCreator(
-            new BillingAddressRequestSender(requestSender))
+            new BillingAddressRequestSender(requestSender)),
+        requestSender
     );
 }
 
