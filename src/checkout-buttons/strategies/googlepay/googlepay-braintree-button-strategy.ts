@@ -4,12 +4,13 @@ import { Checkout, CheckoutActionCreator, CheckoutStore } from '../../../checkou
 import { InvalidArgumentError, MissingDataError, MissingDataErrorType } from '../../../common/error/errors';
 import { bindDecorator as bind } from '../../../common/utility';
 import { PaymentInitializeOptions, PaymentMethod, PaymentMethodActionCreator } from '../../../payment';
-import { GooglePayBraintreeSDK, GooglePayPaymentOptions, GooglePayPaymentStrategy, GooglePayScriptLoader, GooglePaySDK } from '../../../payment/strategies/googlepay';
+import { GooglePayBraintreeSDK, GooglePayPaymentOptions, GooglePayPaymentStrategy, GooglePayScriptLoader, GooglePaySDK, EnvironmentType } from '../../../payment/strategies/googlepay';
 import GooglePayPaymentProcessor from '../../../payment/strategies/googlepay/googlepay-payment-processor';
 import { CheckoutButtonInitializeOptions, CheckoutButtonOptions } from '../../checkout-button-options';
 import CheckoutButtonStrategy from '../checkout-button-strategy';
 
 import { GooglePayBraintreeButtonInitializeOptions } from './googlepay-braintree-button-options';
+import { env } from 'shelljs';
 
 export default class GooglePayBraintreeButtonStrategy extends CheckoutButtonStrategy {
     private _paymentMethod?: PaymentMethod;
@@ -21,8 +22,7 @@ export default class GooglePayBraintreeButtonStrategy extends CheckoutButtonStra
         private _formPoster: FormPoster,
         private _googlePayScriptLoader: GooglePayScriptLoader,
         private _checkoutActionCreator: CheckoutActionCreator,
-        private _paymentMethodActionCreator: PaymentMethodActionCreator,
-        private _googlePayPaymentProcessor: GooglePayPaymentProcessor
+        private _paymentMethodActionCreator: PaymentMethodActionCreator
     ) {
         super();
     }
@@ -39,6 +39,9 @@ export default class GooglePayBraintreeButtonStrategy extends CheckoutButtonStra
         }
 
         this._methodId = methodId;
+        const environment: EnvironmentType = (googlepaybraintree.environment) ? googlepaybraintree.environment : 'TEST';
+
+        this._createGooglePayButton({ environment }, googlepaybraintree);
 
         return this._store.dispatch(this._checkoutActionCreator.loadDefaultCheckout())
             .then(stateCheckout => {
@@ -47,8 +50,8 @@ export default class GooglePayBraintreeButtonStrategy extends CheckoutButtonStra
                     throw new MissingDataError(MissingDataErrorType.MissingCart);
                 }
 
-                return this._googlePayPaymentProcessor.initialize(this._methodId)
-                    .then(() => this._googlePayPaymentProcessor.createButton(this._handleWalletButtonClick));
+                // return this._googlePayPaymentProcessor.initialize(this._methodId)
+                //     .then(() => this._googlePayPaymentProcessor.createButton(this._handleWalletButtonClick));
 
         }).then(() => super.initialize(options));
     }
@@ -60,8 +63,10 @@ export default class GooglePayBraintreeButtonStrategy extends CheckoutButtonStra
 
         this._paymentMethod = undefined;
 
-        return this._googlePayPaymentProcessor.deinitialize()
-            .then(() => super.deinitialize(options));
+        return super.deinitialize(options);
+
+        // return this._googlePayPaymentProcessor.deinitialize()
+        //     .then(() => super.deinitialize(options));
     }
 
     private _createGooglePayButton(googleClientOptions: GooglePayPaymentOptions, googlepaybraintree: GooglePayBraintreeButtonInitializeOptions): Promise<void> {
@@ -69,7 +74,10 @@ export default class GooglePayBraintreeButtonStrategy extends CheckoutButtonStra
             .then(googleSDK => {
                 const googleClient = new googleSDK.payments.api.PaymentsClient(googleClientOptions);
 
-                const googlePayButton = googleClient.createButton({});
+                const googlePayButton = googleClient.createButton({
+                    onClick: this._handleWalletButtonClick,
+                    buttonSize: (googlepaybraintree.buttonType) ? googlepaybraintree.buttonType : 'long',
+                });
                 const container = document.querySelector(`#${googlepaybraintree.container}`);
 
                 if (!container) {
@@ -82,7 +90,7 @@ export default class GooglePayBraintreeButtonStrategy extends CheckoutButtonStra
 
     @bind
     private _handleWalletButtonClick(): Promise<void> {
-        return this._googlePayPaymentProcessor.displayWallet()
+        return Promise.resolve()
             .then(() => this._onPaymentSelectComplete());
     }
 
