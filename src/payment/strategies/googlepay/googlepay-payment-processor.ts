@@ -105,7 +105,8 @@ export default class GooglePayPaymentProcessor {
 
     updateShippingAddress(shippingAddress: GooglePayAddress): Promise<InternalCheckoutSelectors> {
         return this._store.dispatch(
-            this._consigmentActionCreator.updateAddress(this._mapGooglePayAddressToShippingAddress(shippingAddress)));
+            this._consigmentActionCreator.updateAddress(this._mapGooglePayAddressToShippingAddress(shippingAddress))
+        );
     }
 
     private _configureWallet(): Promise<void> {
