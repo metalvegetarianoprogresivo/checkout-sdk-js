@@ -11,9 +11,9 @@ import { getCustomerState } from '../../../customer/customers.mock';
 import { PaymentMethod } from '../../../payment';
 import { getPaymentMethodsState } from '../../../payment/payment-methods.mock';
 import {
-    createGooglePayBraintreePaymentProcessor,
+    createGooglePayStripePaymentProcessor,
     GooglePaymentData,
-    GooglePayPaymentProcessor
+    GooglePayPaymentProcessor 
 } from '../../../payment/strategies/googlepay';
 import { getGooglePaymentDataMock } from '../../../payment/strategies/googlepay/googlepay.mock';
 import { CheckoutButtonInitializeOptions } from '../../checkout-button-options';
@@ -21,7 +21,7 @@ import { CheckoutButtonInitializeOptions } from '../../checkout-button-options';
 import GooglePayButtonStrategy from './googlepay-button-strategy';
 import { getCheckoutButtonOptions, getPaymentMethod, Mode } from './googlepay-button.mock';
 
-describe('GooglePayBraintreeCheckoutButtonStrategy', () => {
+describe('GooglePayStripeCheckoutButtonStrategy', () => {
     let container: HTMLDivElement;
     let formPoster: FormPoster;
     let checkoutButtonOptions: CheckoutButtonInitializeOptions;
@@ -51,7 +51,7 @@ describe('GooglePayBraintreeCheckoutButtonStrategy', () => {
             new ConfigActionCreator(new ConfigRequestSender(requestSender))
         );
 
-        paymentProcessor = createGooglePayBraintreePaymentProcessor(store);
+        paymentProcessor = createGooglePayStripePaymentProcessor(store);
 
         formPoster = createFormPoster();
 
@@ -92,7 +92,7 @@ describe('GooglePayBraintreeCheckoutButtonStrategy', () => {
         document.body.removeChild(container);
     });
 
-    it('creates an instance of GooglePayBraintreeButtonStrategy', () => {
+    it('creates an instance of GooglePayStripeButtonStrategy', () => {
         expect(strategy).toBeInstanceOf(GooglePayButtonStrategy);
     });
 
@@ -148,7 +148,7 @@ describe('GooglePayBraintreeCheckoutButtonStrategy', () => {
         let checkoutButtonOptions: CheckoutButtonInitializeOptions;
 
         beforeEach(() => {
-            checkoutButtonOptions = getCheckoutButtonOptions();
+            checkoutButtonOptions = getCheckoutButtonOptions(Mode.GooglePayStripe);
         });
 
         it('check if googlepay payment processor deinitialize is called', async () => {

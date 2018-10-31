@@ -7,7 +7,7 @@ import { Registry } from '../common/registry';
 import { ConfigActionCreator, ConfigRequestSender } from '../config';
 import { BraintreeScriptLoader, BraintreeSDKCreator } from '../payment/strategies/braintree';
 
-import { createGooglePayBraintreePaymentProcessor } from '../payment/strategies/googlepay';
+import { createGooglePayBraintreePaymentProcessor, createGooglePayStripePaymentProcessor } from '../payment/strategies/googlepay';
 import { MasterpassScriptLoader } from '../payment/strategies/masterpass';
 import { PaypalScriptLoader } from '../payment/strategies/paypal';
 
@@ -15,7 +15,7 @@ import {
     BraintreePaypalButtonStrategy,
     CheckoutButtonMethodType,
     CheckoutButtonStrategy,
-    GooglePayBraintreeButtonStrategy,
+    GooglePayButtonStrategy,
     MasterpassButtonStrategy
 } from './strategies';
 
@@ -60,11 +60,20 @@ export default function createCheckoutButtonRegistry(
         ));
 
     registry.register(CheckoutButtonMethodType.GOOGLEPAY_BRAINTREE, () =>
-        new GooglePayBraintreeButtonStrategy(
+        new GooglePayButtonStrategy(
             store,
             formPoster,
             checkoutActionCreator,
             createGooglePayBraintreePaymentProcessor(store)
+        )
+    );
+
+    registry.register(CheckoutButtonMethodType.GOOGLEPAY_STRIPE, () =>
+        new GooglePayButtonStrategy(
+            store,
+            formPoster,
+            checkoutActionCreator,
+            createGooglePayStripePaymentProcessor(store)
         )
     );
 
