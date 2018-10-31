@@ -9,7 +9,7 @@ import { PaymentMethodActionCreator, PaymentMethodRequestSender } from '../payme
 import { AmazonPayScriptLoader } from '../payment/strategies/amazon-pay';
 import { createBraintreeVisaCheckoutPaymentProcessor, VisaCheckoutScriptLoader } from '../payment/strategies/braintree';
 import { ChasePayScriptLoader } from '../payment/strategies/chasepay';
-import { createGooglePayBraintreePaymentProcessor } from '../payment/strategies/googlepay/';
+import { createGooglePayBraintreePaymentProcessor, createGooglePayStripePaymentProcessor } from '../payment/strategies/googlepay/';
 import { MasterpassScriptLoader } from '../payment/strategies/masterpass';
 import { RemoteCheckoutActionCreator, RemoteCheckoutRequestSender } from '../remote-checkout';
 
@@ -26,6 +26,7 @@ import {
     MasterpassCustomerStrategy,
     SquareCustomerStrategy
 } from './strategies';
+import { GooglePayStripeCustomerStrategy } from './strategies/googlepay';
 
 export default function createCustomerStrategyRegistry(
     store: CheckoutStore,
@@ -100,6 +101,15 @@ export default function createCustomerStrategyRegistry(
             formPoster
         )
     );
+
+    registry.register('googlepaystripe', () =>
+        new GooglePayStripeCustomerStrategy(
+            store,
+            remoteCheckoutActionCreator,
+            createGooglePayStripePaymentProcessor(store),
+            formPoster
+    )
+);
 
     registry.register('default', () =>
         new DefaultCustomerStrategy(
