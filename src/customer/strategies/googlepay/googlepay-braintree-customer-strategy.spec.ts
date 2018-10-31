@@ -8,7 +8,7 @@ import { InvalidArgumentError, MissingDataError } from '../../../common/error/er
 import { getConfigState } from '../../../config/configs.mock';
 import PaymentMethod from '../../../payment/payment-method';
 import { getPaymentMethod, getPaymentMethodsState } from '../../../payment/payment-methods.mock';
-import { createGooglePayPaymentProcessor, GooglePayPaymentProcessor } from '../../../payment/strategies/googlepay';
+import { createGooglePayBraintreePaymentProcessor, GooglePayPaymentProcessor } from '../../../payment/strategies/googlepay';
 import { getGooglePaymentDataMock } from '../../../payment/strategies/googlepay/googlepay.mock';
 import { RemoteCheckoutActionCreator, RemoteCheckoutRequestSender } from '../../../remote-checkout';
 import { CustomerInitializeOptions } from '../../customer-request-options';
@@ -46,7 +46,7 @@ describe('GooglePayBraintreeCustomerStrategy', () => {
             new RemoteCheckoutRequestSender(requestSender)
         );
 
-        paymentProcessor = createGooglePayPaymentProcessor(store);
+        paymentProcessor = createGooglePayBraintreePaymentProcessor(store);
 
         formPoster = createFormPoster();
 

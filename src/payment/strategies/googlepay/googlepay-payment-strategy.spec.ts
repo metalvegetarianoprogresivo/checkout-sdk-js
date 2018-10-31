@@ -34,7 +34,7 @@ import {
 
 import { getGooglePay, getPaymentMethodsState } from '../../payment-methods.mock';
 
-import createGooglePayPaymentProcessor from './create-googlepay-payment-processor';
+import createGooglePayBraintreePaymentProcessor from './create-googlepay-braintree-payment-processor';
 import GooglePayPaymentProcessor from './googlepay-payment-processor';
 import GooglePayPaymentStrategy from './googlepay-payment-strategy';
 import { getGoogleOrderRequestBody, getGooglePaymentDataMock } from './googlepay.mock';
@@ -80,7 +80,7 @@ describe('GooglePayPaymentStrategy', () => {
             )
         );
 
-        googlePayPaymentProcessor = createGooglePayPaymentProcessor(store);
+        googlePayPaymentProcessor = createGooglePayBraintreePaymentProcessor(store);
 
         strategy = new GooglePayPaymentStrategy(
             store,

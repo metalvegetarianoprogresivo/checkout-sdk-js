@@ -12,7 +12,7 @@ import GooglePayBraintreeInitializer from './googlepay-braintree-initializer';
 import GooglePayPaymentProcessor from './googlepay-payment-processor';
 import GooglePayScriptLoader from './googlepay-script-loader';
 
-export default function createGooglePayPaymentProcessor(store: CheckoutStore): GooglePayPaymentProcessor {
+export default function createGooglePayBraintreePaymentProcessor(store: CheckoutStore): GooglePayPaymentProcessor {
     const requestSender = createRequestSender();
     const scriptLoader = getScriptLoader();
 

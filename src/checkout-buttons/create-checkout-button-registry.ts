@@ -7,7 +7,7 @@ import { Registry } from '../common/registry';
 import { ConfigActionCreator, ConfigRequestSender } from '../config';
 import { BraintreeScriptLoader, BraintreeSDKCreator } from '../payment/strategies/braintree';
 
-import { createGooglePayPaymentProcessor } from '../payment/strategies/googlepay';
+import { createGooglePayBraintreePaymentProcessor } from '../payment/strategies/googlepay';
 import { MasterpassScriptLoader } from '../payment/strategies/masterpass';
 import { PaypalScriptLoader } from '../payment/strategies/paypal';
 
@@ -64,7 +64,7 @@ export default function createCheckoutButtonRegistry(
             store,
             formPoster,
             checkoutActionCreator,
-            createGooglePayPaymentProcessor(store)
+            createGooglePayBraintreePaymentProcessor(store)
         )
     );
 
