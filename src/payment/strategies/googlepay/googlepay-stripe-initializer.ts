@@ -53,7 +53,7 @@ export default class GooglePayStripeInitializer implements GooglePayInitializer 
             apiVersionMinor: 0,
             merchantInfo: {
                 authJwt: initializationData.platformToken,
-                // merchantId: initializationData.googleMerchantId,
+                merchantId: initializationData.googleMerchantId,
                 merchantName: initializationData.googleMerchantName,
             },
             allowedPaymentMethods: [{
@@ -71,10 +71,8 @@ export default class GooglePayStripeInitializer implements GooglePayInitializer 
                     type: 'PAYMENT_GATEWAY',
                     parameters: {
                         gateway: 'stripe',
-                        'stripe:version': '2017-02-14',
-                        'stripe:publishableKey': 'pk_test_4MVAAQNxf8R4xfG5geJWltLV',
-                        // 'stripe:version': initializationData.stripeVersion,
-                        // 'stripe.publishableKey': initializationData.stripePublishableKey,
+                        'stripe:version': initializationData.stripeVersion,
+                        'stripe:publishableKey': initializationData.stripePublishableKey,
                     },
                 },
             }],
