@@ -30,6 +30,8 @@ import {
 } from './strategies/braintree';
 import { ChasePayPaymentStrategy, ChasePayScriptLoader } from './strategies/chasepay';
 import { CreditCardPaymentStrategy } from './strategies/credit-card';
+import CyberSourcePaymentStrategy from './strategies/cybersource/cybersource-payment-strategy';
+import CyberSourceScriptLoader from './strategies/cybersource/cybersource-script-loader';
 import {
     createGooglePayPaymentProcessor,
     GooglePayBraintreeInitializer,
@@ -47,8 +49,6 @@ import { SagePayPaymentStrategy } from './strategies/sage-pay';
 import { SquarePaymentStrategy, SquareScriptLoader } from './strategies/square';
 import { WepayPaymentStrategy, WepayRiskClient } from './strategies/wepay';
 import { ZipPaymentStrategy, ZipScriptLoader } from './strategies/zip';
-import CyberSourcePaymentStrategy from "./strategies/cybersource/cybersource-payment-strategy";
-import CyberSourceScriptLoader from "./strategies/cybersource/cybersource-script-loader";
 
 export default function createPaymentStrategyRegistry(
     store: CheckoutStore,
