@@ -11,29 +11,27 @@ import {
     CheckoutValidator,
     InternalCheckoutSelectors
 } from '../../../checkout';
+import { getCheckoutStoreState } from '../../../checkout/checkouts.mock';
+import { MissingDataError, NotInitializedError } from '../../../common/error/errors';
 import { OrderActionCreator, OrderActionType, OrderRequestBody, OrderRequestSender } from '../../../order';
 import { OrderFinalizationNotRequiredError } from '../../../order/errors';
 import { getOrderRequestBody } from '../../../order/internal-orders.mock';
 import { RemoteCheckoutActionCreator, RemoteCheckoutActionType, RemoteCheckoutRequestSender } from '../../../remote-checkout';
 import { PaymentMethodCancelledError, PaymentMethodInvalidError } from '../../errors';
+import { CreditCardInstrument } from '../../payment';
+import PaymentActionCreator from '../../payment-action-creator';
+import { PaymentActionType } from '../../payment-actions';
 import PaymentMethod from '../../payment-method';
 import PaymentMethodActionCreator from '../../payment-method-action-creator';
 import { PaymentMethodActionType } from '../../payment-method-actions';
 import PaymentMethodRequestSender from '../../payment-method-request-sender';
+import { getCybersource } from '../../payment-methods.mock';
 import { PaymentInitializeOptions, PaymentRequestOptions } from '../../payment-request-options';
 
-import { getCheckoutStoreState } from '../../../checkout/checkouts.mock';
-import { NotInitializedError, MissingDataError } from '../../../common/error/errors';
-import { getCybersource } from '../../payment-methods.mock';
-
+import CyberSourcePaymentProcessor from './cybersource-payment-processor';
 import CyberSourcePaymentStrategy from './cybersource-payment-strategy';
 import CyberSourceScriptLoader from './cybersource-script-loader';
 import CyberSourceThreeDSecurePaymentProcessor from './cybersource-threedsecure-payment-processor';
-import CyberSourcePaymentProcessor from './cybersource-payment-processor';
-import PaymentActionCreator from '../../payment-action-creator';
-import { async } from 'rxjs/internal/scheduler/async';
-import { PaymentActionType } from '../../payment-actions';
-import { CreditCardInstrument } from '../../payment';
 
 describe('CyberSourcePaymentStrategy', () => {
     let initializePaymentAction: Observable<Action>;
@@ -115,8 +113,9 @@ describe('CyberSourcePaymentStrategy', () => {
             .mockReturnValue(submitOrderAction);
 
         jest.spyOn(cyberSourcePaymentProcessor, 'execute').mockReturnValue(orderActionCreator.submitOrder(payload));
-        
+
         jest.spyOn(cyberSourceThreeDSecurePaymentProcessor, 'initialize').mockReturnValue(store.getState());
+        jest.spyOn(cyberSourceThreeDSecurePaymentProcessor, 'execute').mockReturnValue(store.getState());
 
         //paymentActionCreator.submitPayment = jest.fn(() => submitPaymentAction);
         //orderActionCreator.submitOrder = jest.fn(() => submitOrderAction);
@@ -165,7 +164,7 @@ describe('CyberSourcePaymentStrategy', () => {
             }
         });
 
-        it('throws data missing error', async() => {
+        it('throws data missing error', async () => {
             payload.payment = undefined;
 
             await strategy.initialize({ methodId: paymentMethodMock.id });
@@ -176,10 +175,16 @@ describe('CyberSourcePaymentStrategy', () => {
             }
         });
 
-        it('initializes strategy successfully', () => {
-            beforeEach(async () => {
-                await strategy.initialize({ methodId: paymentMethodMock.id });
-            });
+        it('initializes strategy successfully', async () => {
+            await strategy.initialize({ methodId: paymentMethodMock.id });
+
+            expect(cyberSourceThreeDSecurePaymentProcessor.initialize).toHaveBeenCalledTimes(1);
+        });
+
+        it('executes the strategy successfully', async () => {
+            await strategy.initialize({ methodId: paymentMethodMock.id });
+
+            await strategy.execute(payload);
 
             expect(cyberSourceThreeDSecurePaymentProcessor.execute).toHaveBeenCalledTimes(1);
         });
