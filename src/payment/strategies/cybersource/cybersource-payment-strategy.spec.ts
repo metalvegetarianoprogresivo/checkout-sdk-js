@@ -153,6 +153,10 @@ describe('CyberSourcePaymentStrategy', () => {
     });
 
     describe('#execute', () => {
+        /*beforeEach(async () => {
+            await strategy.initialize({ methodId: paymentMethodMock.id });
+        });*/
+
         it('throws error to inform that order finalization is not required and cannot be execute', async () => {
             try {
                 await strategy.execute(payload);
@@ -160,8 +164,26 @@ describe('CyberSourcePaymentStrategy', () => {
                 expect(error).toBeInstanceOf(NotInitializedError);
             }
         });
-        // 49,53,64,72
-        // 52,53,56,64,72
+
+        it('throws data missing error', async() => {
+            payload.payment = undefined;
+
+            await strategy.initialize({ methodId: paymentMethodMock.id });
+            try {
+                await strategy.execute(payload);
+            } catch (error) {
+                expect(error).toBeInstanceOf(MissingDataError);
+            }
+        });
+
+        it('initializes strategy successfully', () => {
+            beforeEach(async () => {
+                await strategy.initialize({ methodId: paymentMethodMock.id });
+            });
+
+            expect(cyberSourceThreeDSecurePaymentProcessor.execute).toHaveBeenCalledTimes(1);
+        });
+        // 56,64,72
     });
 
     describe('#finalize()', () => {
@@ -172,12 +194,6 @@ describe('CyberSourcePaymentStrategy', () => {
                 expect(error).toBeInstanceOf(NotInitializedError);
             }
         });
-
-        // it('calling finalize method of processor', () => {
-        //     jest.spyOn(cyberSourceThreeDSecurePaymentProcessor, 'finalize').mockReturnValue(store.getState());
-
-        //     expect(cyberSourceThreeDSecurePaymentProcessor.finalize).toHaveBeenCalledTimes(1);
-        // });
     });
 
     describe('#deinitialize()', () => {
@@ -188,11 +204,6 @@ describe('CyberSourcePaymentStrategy', () => {
                 expect(error).toBeInstanceOf(NotInitializedError);
             }
         });
-
-        // it('calling finalize method of processor when deinitializing', async () => {
-        //     jest.spyOn(cyberSourcePaymentProcessor, 'deinitialize').mockReturnValue(store.getState());
-        //     expect(cyberSourcePaymentProcessor.deinitialize).toHaveBeenCalledTimes(1);
-        // });
     });
 });
 

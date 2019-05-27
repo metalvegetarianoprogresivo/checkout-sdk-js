@@ -38,5 +38,21 @@ describe('CybersourceScriptLoader', () => {
             expect(error).toBeInstanceOf(StandardError);
         }
     });
-    // 17,20,21,24
+
+    // it('throws error to inform that order finalization is not required', async () => {
+    //     scriptLoader.loadScript = jest.fn(() => {
+    //         if (cardinalWindow.window) {
+    //             // mockWindow.braintree.googlePayment = undefined;
+    //             // mockWindow.braintree = undefined;
+    //             return Promise.resolve();
+    //         }
+    //     });
+
+    //     try {
+    //         await cybersourceScriptLoader.load();
+    //     } catch (error) {
+    //         expect(error).toBeInstanceOf(StandardError);
+    //     }
+    // });
+    // 24
 });
