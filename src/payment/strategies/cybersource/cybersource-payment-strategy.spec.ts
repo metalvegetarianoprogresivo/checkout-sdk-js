@@ -23,17 +23,19 @@ import PaymentMethodRequestSender from '../../payment-method-request-sender';
 import { PaymentInitializeOptions, PaymentRequestOptions } from '../../payment-request-options';
 
 import { getCheckoutStoreState } from '../../../checkout/checkouts.mock';
-import { MissingDataError } from '../../../common/error/errors';
-import { getKlarna, getCybersource } from '../../payment-methods.mock';
+import { NotInitializedError, MissingDataError } from '../../../common/error/errors';
+import { getCybersource } from '../../payment-methods.mock';
 
 import CyberSourcePaymentStrategy from './cybersource-payment-strategy';
 import CyberSourceScriptLoader from './cybersource-script-loader';
 import CyberSourceThreeDSecurePaymentProcessor from './cybersource-threedsecure-payment-processor';
 import CyberSourcePaymentProcessor from './cybersource-payment-processor';
-//import { CyberSourceScriptLoader } from './index';
 import PaymentActionCreator from '../../payment-action-creator';
+import { async } from 'rxjs/internal/scheduler/async';
+import { PaymentActionType } from '../../payment-actions';
+import { CreditCardInstrument } from '../../payment';
 
-describe('KlarnaPaymentStrategy', () => {
+describe('CyberSourcePaymentStrategy', () => {
     let initializePaymentAction: Observable<Action>;
     let loadPaymentMethodAction: Observable<Action>;
     let payload: OrderRequestBody;
@@ -50,23 +52,24 @@ describe('KlarnaPaymentStrategy', () => {
     let paymentActionCreator: PaymentActionCreator;
     let cyberSourcePaymentProcessor: CyberSourcePaymentProcessor;
     let paymentInitializeOptions: PaymentInitializeOptions;
+    let creditCardInstrument: CreditCardInstrument;
 
     beforeEach(() => {
         paymentMethodMock = { ...getCybersource(), clientToken: 'foo' };
         store = createCheckoutStore(getCheckoutStoreState());
 
-        jest.spyOn(store, 'dispatch').mockReturnValue(Promise.resolve(store.getState()));
         jest.spyOn(store.getState().paymentMethods, 'getPaymentMethod').mockReturnValue(paymentMethodMock);
 
-        orderActionCreator = new OrderActionCreator(
-            new OrderRequestSender(createRequestSender()),
-            new CheckoutValidator(new CheckoutRequestSender(createRequestSender()))
-        );
         paymentMethodActionCreator = new PaymentMethodActionCreator(new PaymentMethodRequestSender(createRequestSender()));
         remoteCheckoutActionCreator = new RemoteCheckoutActionCreator(
             new RemoteCheckoutRequestSender(createRequestSender())
         );
         scriptLoader = new CyberSourceScriptLoader(createScriptLoader());
+
+        orderActionCreator = new OrderActionCreator(
+            new OrderRequestSender(createRequestSender()),
+            new CheckoutValidator(new CheckoutRequestSender(createRequestSender()))
+        );
 
         cyberSourceThreeDSecurePaymentProcessor = new CyberSourceThreeDSecurePaymentProcessor(
             store,
@@ -88,23 +91,19 @@ describe('KlarnaPaymentStrategy', () => {
             cyberSourcePaymentProcessor
         );
 
-        paymentMethod = getCybersource();
-
         payload = merge({}, getOrderRequestBody(), {
             payment: {
-                methodId: paymentMethod.id,
-                gatewayId: paymentMethod.gateway,
+                methodId: paymentMethodMock.id,
+                gatewayId: paymentMethodMock.gateway,
             },
         });
 
-        loadPaymentMethodAction = of(createAction(PaymentMethodActionType.LoadPaymentMethodSucceeded, paymentMethod, { methodId: paymentMethod.id }));
+        loadPaymentMethodAction = of(createAction(PaymentMethodActionType.LoadPaymentMethodSucceeded, paymentMethodMock, { methodId: paymentMethodMock.id }));
         initializePaymentAction = of(createAction(RemoteCheckoutActionType.InitializeRemotePaymentRequested));
+        //submitPaymentAction = of(createAction(PaymentActionType.SubmitPaymentRequested));
         submitOrderAction = of(createAction(OrderActionType.SubmitOrderRequested));
 
         jest.spyOn(store, 'dispatch');
-
-        jest.spyOn(orderActionCreator, 'submitOrder')
-            .mockReturnValue(submitOrderAction);
 
         jest.spyOn(paymentMethodActionCreator, 'loadPaymentMethod')
             .mockReturnValue(loadPaymentMethodAction);
@@ -112,48 +111,88 @@ describe('KlarnaPaymentStrategy', () => {
         jest.spyOn(remoteCheckoutActionCreator, 'initializePayment')
             .mockReturnValue(initializePaymentAction);
 
-        jest.spyOn(store, 'subscribe');
+        jest.spyOn(orderActionCreator, 'submitOrder')
+            .mockReturnValue(submitOrderAction);
+
+        jest.spyOn(cyberSourcePaymentProcessor, 'execute').mockReturnValue(orderActionCreator.submitOrder(payload));
+        
+        jest.spyOn(cyberSourceThreeDSecurePaymentProcessor, 'initialize').mockReturnValue(store.getState());
+
+        //paymentActionCreator.submitPayment = jest.fn(() => submitPaymentAction);
+        //orderActionCreator.submitOrder = jest.fn(() => submitOrderAction);
     });
 
-    describe('#initialize()', () => {
-        const onLoad = jest.fn();
-
+    describe('#initialize', () => {
         beforeEach(async () => {
-            await strategy.initialize(paymentInitializeOptions);
+            await strategy.initialize({ methodId: paymentMethodMock.id });
         });
 
-        it('loads script when initializing strategy', () => {
-            expect(scriptLoader.load).toHaveBeenCalledTimes(1);
+        it('initializes strategy successfully', () => {
+            expect(cyberSourceThreeDSecurePaymentProcessor.initialize).toHaveBeenCalledTimes(1);
         });
 
-        it('throws error if required data is not loaded', async () => {
-            store = createCheckoutStore();
-            strategy = new CyberSourcePaymentStrategy(
-                store,
-                paymentMethodActionCreator,
-                cyberSourceThreeDSecurePaymentProcessor,
-                cyberSourcePaymentProcessor
-            );
+        it('initializes strategy with is3dsEnabled in false successfully', async () => {
+            jest.spyOn(cyberSourcePaymentProcessor, 'initialize').mockReturnValue(store.getState());
+            paymentMethod = { ...getCybersource() };
+            paymentMethod.config.is3dsEnabled = false;
+            jest.spyOn(store.getState().paymentMethods, 'getPaymentMethod').mockReturnValue(paymentMethod);
+            await strategy.initialize({ methodId: paymentMethodMock.id });
+
+            expect(cyberSourcePaymentProcessor.initialize).toHaveBeenCalledTimes(1);
+        });
+
+        it('throws data missing error', async() => {
+            jest.spyOn(store.getState().paymentMethods, 'getPaymentMethod').mockReturnValue(undefined);
 
             try {
-                await strategy.initialize({ methodId: paymentMethod.id });
+                await strategy.initialize({ methodId: paymentMethodMock.id });
             } catch (error) {
                 expect(error).toBeInstanceOf(MissingDataError);
             }
         });
     });
 
-    describe('#finalize()', () => {
-        beforeEach(async () => {
-            await strategy.initialize(paymentInitializeOptions);
+    describe('#execute', () => {
+        it('throws error to inform that order finalization is not required and cannot be execute', async () => {
+            try {
+                await strategy.execute(payload);
+            } catch (error) {
+                expect(error).toBeInstanceOf(NotInitializedError);
+            }
         });
+        // 49,53,64,72
+        // 52,53,56,64,72
+    });
 
+    describe('#finalize()', () => {
         it('throws error to inform that order finalization is not required', async () => {
             try {
                 await strategy.finalize();
             } catch (error) {
-                expect(error).toBeInstanceOf(OrderFinalizationNotRequiredError);
+                expect(error).toBeInstanceOf(NotInitializedError);
             }
         });
+
+        // it('calling finalize method of processor', () => {
+        //     jest.spyOn(cyberSourceThreeDSecurePaymentProcessor, 'finalize').mockReturnValue(store.getState());
+
+        //     expect(cyberSourceThreeDSecurePaymentProcessor.finalize).toHaveBeenCalledTimes(1);
+        // });
+    });
+
+    describe('#deinitialize()', () => {
+        it('throws error to inform that order finalization is not required', async () => {
+            try {
+                await strategy.deinitialize();
+            } catch (error) {
+                expect(error).toBeInstanceOf(NotInitializedError);
+            }
+        });
+
+        // it('calling finalize method of processor when deinitializing', async () => {
+        //     jest.spyOn(cyberSourcePaymentProcessor, 'deinitialize').mockReturnValue(store.getState());
+        //     expect(cyberSourcePaymentProcessor.deinitialize).toHaveBeenCalledTimes(1);
+        // });
     });
 });
+
