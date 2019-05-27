@@ -1,15 +1,19 @@
 import { createScriptLoader } from '@bigcommerce/script-loader';
 
-import CybersourceScriptLoader from './cybersource-script-loader';
 import { StandardError } from '../../../common/error/errors';
+
 import { CardinalWindow, CyberSourceCardinal } from './cybersource';
+import CybersourceScriptLoader from './cybersource-script-loader';
+import { getCyberSourceScriptMock } from './cybersource.mock';
 
 describe('CybersourceScriptLoader', () => {
+    const cardinalWindow: CardinalWindow = window;
     const scriptLoader = createScriptLoader();
-    const cybersourceScriptLoader = new CybersourceScriptLoader(scriptLoader);
-    let cardinalWindow: CardinalWindow;
+    const scriptMock = getCyberSourceScriptMock();
+    let cybersourceScriptLoader: CybersourceScriptLoader;
 
     beforeEach(() => {
+        cybersourceScriptLoader = new CybersourceScriptLoader(scriptLoader, cardinalWindow);
         jest.spyOn(scriptLoader, 'loadScript').mockReturnValue(Promise.resolve(true));
     });
 
@@ -31,28 +35,25 @@ describe('CybersourceScriptLoader', () => {
         );
     });
 
+    it('returns script to the window', async () => {
+        scriptLoader.loadScript = jest.fn(() => {
+            cardinalWindow.Cardinal = scriptMock.Cardinal;
+
+            return Promise.resolve();
+        });
+        const cybersourceScript = await cybersourceScriptLoader.load();
+        expect(cybersourceScript).toBe(cardinalWindow.Cardinal);
+    });
+
     it('throws error to inform that order finalization is not required', async () => {
+        scriptLoader.loadScript = jest.fn(() => {
+            throw new StandardError();
+        });
+
         try {
             await cybersourceScriptLoader.load();
         } catch (error) {
             expect(error).toBeInstanceOf(StandardError);
         }
     });
-
-    // it('throws error to inform that order finalization is not required', async () => {
-    //     scriptLoader.loadScript = jest.fn(() => {
-    //         if (cardinalWindow.window) {
-    //             // mockWindow.braintree.googlePayment = undefined;
-    //             // mockWindow.braintree = undefined;
-    //             return Promise.resolve();
-    //         }
-    //     });
-
-    //     try {
-    //         await cybersourceScriptLoader.load();
-    //     } catch (error) {
-    //         expect(error).toBeInstanceOf(StandardError);
-    //     }
-    // });
-    // 24
 });
