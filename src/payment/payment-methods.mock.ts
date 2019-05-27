@@ -137,6 +137,7 @@ export function getCybersource(): PaymentMethod {
             testMode: false,
         },
         type: 'PAYMENT_TYPE_API',
+        clientToken: 'cyberToken',
     };
 }
 
