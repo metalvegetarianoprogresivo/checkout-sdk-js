@@ -22,7 +22,7 @@ export function getCyberSourceScriptMock(): CardinalWindow {
     };
 }
 
-export function getCyberSourceScriptMock2(): CyberSourceCardinal {
+export function getCyberSourceCardinal(): CyberSourceCardinal {
     return {
         configure: jest.fn(),
         on: jest.fn(),

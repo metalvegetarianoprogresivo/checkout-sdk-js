@@ -30,15 +30,9 @@ import { PaymentRequestSender } from '../../index';
 import { createClient as createPaymentClient } from '@bigcommerce/bigpay-client';
 import { PaymentActionType } from '../../payment-actions';
 import { CreditCardInstrument } from '../../payment';
-import {PaymentInitializeOptions, PaymentRequestOptions} from '../../payment-request-options';
-import {CardinalEventResponse, CardinalEventType, CardinalValidatedAction, CyberSourceCardinal} from './cybersource';
-import {getCyberSourceScriptMock2, getRejectAuthorizationPromise} from './cybersource.mock';
-import { Subject } from 'rxjs/index';
-import {
-    getCheckoutMock,
-    getGooglePayStripePaymentDataRequestMock,
-    getPaymentMethodMock
-} from "../googlepay/googlepay.mock";
+import { PaymentRequestOptions} from '../../payment-request-options';
+import {CyberSourceCardinal} from './cybersource';
+import {getCyberSourceCardinal} from './cybersource.mock';
 
 describe('CyberSourceThreeDSecurePaymentProcessor', () => {
     let processor: CyberSourceThreeDSecurePaymentProcessor;
@@ -92,7 +86,7 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
         submitOrderAction = of(createAction(OrderActionType.SubmitOrderRequested));
         submitPaymentAction = of(createAction(PaymentActionType.SubmitPaymentRequested));
 
-        JPMC = getCyberSourceScriptMock2();
+        JPMC = getCyberSourceCardinal();
         cybersourceScriptLoader = new CyberSourceScriptLoader(createScriptLoader());
 
         jest.spyOn(_orderActionCreator, 'submitOrder')
@@ -160,6 +154,7 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
             try {
                 processor.initialize(paymentMethodMock);
                 JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'FAILURE', ErrorDescription: ''}));
+                expect(await processor.execute(orderPaymentRequestBody, orderRequestBody, creditCardInstrument)).toEqual(store.getState());
             } catch (error) {
                 expect(error).toBeInstanceOf(NotInitializedError);
             }
@@ -169,6 +164,7 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
             try {
                 processor.initialize(paymentMethodMock);
                 JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'ERROR', ErrorNumber: 1010}));
+                expect(await processor.execute(orderPaymentRequestBody, orderRequestBody, creditCardInstrument)).toEqual(store.getState());
             } catch (error) {
                 expect(error).toBeInstanceOf(NotInitializedError);
             }
@@ -178,7 +174,16 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
             try {
                 processor.initialize(paymentMethodMock);
                 JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'SUCCESS'}));
-                expect(await processor.initialize(paymentMethodMock)).toEqual(store.getState());
+                expect(await processor.execute(orderPaymentRequestBody, orderRequestBody, creditCardInstrument)).toEqual(store.getState());
+            } catch (error) {
+                expect(error).toBeInstanceOf(NotInitializedError);
+            }
+        });
+
+        it('payment action creater submitpayment', async () => {
+            try {
+                await processor.execute(orderPaymentRequestBody, orderRequestBody, creditCardInstrument);
+                expect(_paymentActionCreator.submitPayment(orderPaymentRequestBody, )).toHaveBeenCalledWith(orderRequestBody, paymentRequestOptions);
             } catch (error) {
                 expect(error).toBeInstanceOf(NotInitializedError);
             }
