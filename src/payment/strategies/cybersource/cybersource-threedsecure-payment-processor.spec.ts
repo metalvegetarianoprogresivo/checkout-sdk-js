@@ -31,10 +31,14 @@ import { createClient as createPaymentClient } from '@bigcommerce/bigpay-client'
 import { PaymentActionType } from '../../payment-actions';
 import { CreditCardInstrument } from '../../payment';
 import {PaymentInitializeOptions, PaymentRequestOptions} from '../../payment-request-options';
-import {CardinalEventType, CardinalValidatedAction, CyberSourceCardinal, CardinalEventResponse} from './cybersource';
-import {getCyberSourceScriptMock} from './cybersource.mock';
-import { Subject } from 'rxjs';
-import {ChasePayEventType} from "../chasepay/chasepay";
+import {CardinalEventResponse, CardinalEventType, CardinalValidatedAction, CyberSourceCardinal} from './cybersource';
+import {getCyberSourceScriptMock2, getRejectAuthorizationPromise} from './cybersource.mock';
+import { Subject } from 'rxjs/index';
+import {
+    getCheckoutMock,
+    getGooglePayStripePaymentDataRequestMock,
+    getPaymentMethodMock
+} from "../googlepay/googlepay.mock";
 
 describe('CyberSourceThreeDSecurePaymentProcessor', () => {
     let processor: CyberSourceThreeDSecurePaymentProcessor;
@@ -88,7 +92,7 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
         submitOrderAction = of(createAction(OrderActionType.SubmitOrderRequested));
         submitPaymentAction = of(createAction(PaymentActionType.SubmitPaymentRequested));
 
-        JPMC = getCyberSourceScriptMock();
+        JPMC = getCyberSourceScriptMock2();
         cybersourceScriptLoader = new CyberSourceScriptLoader(createScriptLoader());
 
         jest.spyOn(_orderActionCreator, 'submitOrder')
@@ -140,19 +144,6 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
 
             expect(cybersourceScriptLoader.load).toHaveBeenLastCalledWith(false);
         });
-
-        it('CardinalEvent CardinalValidation failure', () => {
-            processor.initialize(paymentMethodMock);
-
-            JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'FAILURE', ErrorDescription: ''}));
-            expect(new Subject().next()).toHaveBeenCalledWith( new Subject<{ type: CardinalEventResponse }>());
-        });
-
-        it('CardinalEvent CardinalValidateAction No action', () => {
-            processor.initialize(paymentMethodMock);
-
-            JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'NOACTION', ErrorNumber: 1}));
-        });
     });
 
     describe('#execute', () => {
@@ -160,7 +151,34 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
             try {
                 await processor.execute(orderPaymentRequestBody, orderRequestBody, creditCardInstrument);
                 expect(_orderActionCreator.submitOrder).toHaveBeenCalledWith(orderRequestBody, paymentRequestOptions);
-                expect(_orderActionCreator.submitOrder).toHaveBeenCalledWith(orderRequestBody, paymentRequestOptions);
+            } catch (error) {
+                expect(error).toBeInstanceOf(NotInitializedError);
+            }
+        });
+
+        it('CardinalEvent CardinalValidation failure', async () => {
+            try {
+                processor.initialize(paymentMethodMock);
+                JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'FAILURE', ErrorDescription: ''}));
+            } catch (error) {
+                expect(error).toBeInstanceOf(NotInitializedError);
+            }
+        });
+
+        it('CardinalEvent CardinalValidateAction NoAction', async () => {
+            try {
+                processor.initialize(paymentMethodMock);
+                JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'ERROR', ErrorNumber: 1010}));
+            } catch (error) {
+                expect(error).toBeInstanceOf(NotInitializedError);
+            }
+        });
+
+        it('CardinalEvent CardinalValidateAction Success', async () => {
+            try {
+                processor.initialize(paymentMethodMock);
+                JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'SUCCESS'}));
+                expect(await processor.initialize(paymentMethodMock)).toEqual(store.getState());
             } catch (error) {
                 expect(error).toBeInstanceOf(NotInitializedError);
             }
