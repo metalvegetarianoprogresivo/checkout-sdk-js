@@ -4,6 +4,7 @@ import {
     CardinalPaymentStep, CardinalValidatedAction,
     CardinalValidatedData,
     CardinalWindow,
+    CardinalBinProccessResponse,
     CyberSourceCardinal, Payment, PaymentType
 } from './cybersource';
 
@@ -52,3 +53,29 @@ export function getRejectAuthorizationPromise(): CardinalEventResponse {
         status: true,
     };
 }
+
+export function getCardinalBinProccessResponse(): CardinalBinProccessResponse {
+    return {
+        Status: true,
+    }
+}
+
+export function getCardinalValidatedData(): CardinalValidatedData {
+    return {
+        ActionCode: CardinalValidatedAction.NOACTION,
+        ErrorDescription: 'error',
+        ErrorNumber: 12,
+        Validated: true,
+        Payment: {
+            ProcessorTransactionId: '',
+            Type: PaymentType.CCA,
+        }
+    }
+}
+
+// export function getCardinalPaymentStep(): CardinalPaymentStep {
+//     return {
+//         setup: '',
+//         authorization: 'CardinalPaymentStep.AUTHORIZATION',
+//     };
+// }
