@@ -1,7 +1,8 @@
+import { createClient as createPaymentClient } from '@bigcommerce/bigpay-client';
+import { createAction, Action } from '@bigcommerce/data-store';
 import { createRequestSender, RequestSender } from '@bigcommerce/request-sender';
 import { createScriptLoader } from '@bigcommerce/script-loader';
 import { of, Observable } from 'rxjs';
-import { createAction, Action } from '@bigcommerce/data-store';
 
 import { BillingAddressActionCreator, BillingAddressRequestSender } from '../../../billing';
 import { getCartState } from '../../../cart/carts.mock';
@@ -16,11 +17,24 @@ import {
 } from '../../../common/error/errors';
 import { getConfigState } from '../../../config/configs.mock';
 import { getCustomerState } from '../../../customer/customers.mock';
+import { OrderActionCreator, OrderActionType, OrderPaymentRequestBody, OrderRequestBody, OrderRequestSender } from '../../../order';
+import { OrderFinalizationNotRequiredError } from '../../../order/errors';
+import { PaymentRequestSender } from '../../index';
+import { CreditCardInstrument } from '../../payment';
+import PaymentActionCreator from '../../payment-action-creator';
+import { PaymentActionType } from '../../payment-actions';
 import PaymentMethod from '../../payment-method';
 import PaymentMethodActionCreator from '../../payment-method-action-creator';
 import PaymentMethodRequestSender from '../../payment-method-request-sender';
 import { getCybersource, getPaymentMethodsState } from '../../payment-methods.mock';
+import { PaymentRequestOptions} from '../../payment-request-options';
+import {getCreditCardInstrument, getPayment } from '../../payments.mock';
+import { getPaymentMethodMock } from '../googlepay/googlepay.mock';
 
+import {CardinalBinProccessResponse, CyberSourceCardinal} from './cybersource';
+import CyberSourceScriptLoader from './cybersource-script-loader';
+import CyberSourceThreeDSecurePaymentProcessor from './cybersource-threedsecure-payment-processor';
+import {getCardinalBinProccessResponse, getCardinalValidatedData, getCyberSourceCardinal, getRejectAuthorizationPromise} from './cybersource.mock';
 import {
     CardinalEventAction,
     CardinalEventResponse,
@@ -34,21 +48,7 @@ import {
     SetupCompletedData,
     SignatureValidationErrors,
 } from './index';
-
-import CyberSourceThreeDSecurePaymentProcessor from './cybersource-threedsecure-payment-processor';
-import CyberSourceScriptLoader from './cybersource-script-loader';
-import { OrderActionCreator, OrderActionType, OrderPaymentRequestBody, OrderRequestBody, OrderRequestSender } from '../../../order';
-import { OrderFinalizationNotRequiredError } from '../../../order/errors';
-import PaymentActionCreator from '../../payment-action-creator';
-import { PaymentRequestSender } from '../../index';
-import { createClient as createPaymentClient } from '@bigcommerce/bigpay-client';
-import { PaymentActionType } from '../../payment-actions';
-import { CreditCardInstrument } from '../../payment';
-import {getCreditCardInstrument, getPayment } from '../../payments.mock'
-import { PaymentRequestOptions} from '../../payment-request-options';
-import {CardinalBinProccessResponse, CyberSourceCardinal} from './cybersource';
-import {getCyberSourceCardinal, getCardinalBinProccessResponse, getRejectAuthorizationPromise, getCardinalValidatedData} from './cybersource.mock';
-import { getPaymentMethodMock } from '../googlepay/googlepay.mock';
+import { cat } from 'shelljs';
 
 describe('CyberSourceThreeDSecurePaymentProcessor', () => {
     let processor: CyberSourceThreeDSecurePaymentProcessor;
@@ -181,12 +181,16 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
     });
 
     describe('#execute', () => {
+        beforeEach(() => {
+            processor.initialize(paymentMethodMock);
+        });
+
         it('executes the processor successfully', async () => {
             try {
                 await processor.execute(orderPaymentRequestBody, orderRequestBody, creditCardInstrument);
                 expect(_orderActionCreator.submitOrder).toHaveBeenCalledWith(orderRequestBody, paymentRequestOptions);
             } catch (error) {
-                expect(error).toBeInstanceOf(NotInitializedError);
+                expect(error).toBeInstanceOf(TypeError);
             }
         });
 
@@ -196,7 +200,7 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
                 JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'FAILURE', ErrorDescription: ''}));
                 expect(await processor.execute(orderPaymentRequestBody, orderRequestBody, creditCardInstrument)).toEqual(store.getState());
             } catch (error) {
-                expect(error).toBeInstanceOf(NotInitializedError);
+                expect(error).toBeInstanceOf(TypeError);
             }
         });
 
@@ -254,14 +258,14 @@ describe('CyberSourceThreeDSecurePaymentProcessor', () => {
                 JPMC.on = jest.fn((type, callback) => callback({ActionCode: 'SUCCESS'}));
                 expect(await processor.execute(orderPaymentRequestBody, orderRequestBody, creditCardInstrument)).toEqual(store.getState());
             } catch (error) {
-                expect(error).toBeInstanceOf(NotInitializedError);
+                expect(error).toBeInstanceOf(TypeError);
             }
         });
 
-        it('payment action creater submitpayment', async () => {
+        it('payment action creater submitpayment not initialized', async () => {
+            jest.spyOn(JPMC, 'trigger').mockReturnValue(Promise.resolve(false));
             try {
-                await processor.execute(orderPaymentRequestBody, orderRequestBody, creditCardInstrument);
-                expect(_paymentActionCreator.submitPayment(orderPaymentRequestBody, )).toHaveBeenCalledWith(orderRequestBody, paymentRequestOptions);
+                await processor.execute(orderPaymentRequestBody, orderRequestBody, getCreditCardInstrument());
             } catch (error) {
                 expect(error).toBeInstanceOf(NotInitializedError);
             }
